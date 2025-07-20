@@ -18,6 +18,15 @@ const Index = () => {
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [factories, setFactories] = useState(0)
   const [goldenClickChance, setGoldenClickChance] = useState(0)
+  
+  // Состояние мини-игры с динамитами
+  const [activeTab, setActiveTab] = useState('main')
+  const [mineField, setMineField] = useState<Array<Array<{revealed: boolean, hasDynamite: boolean, reward: number, adjacentDynamites: number}>>>([])
+  const [gameOver, setGameOver] = useState(false)
+  const [gameWon, setGameWon] = useState(false)
+  const [mineRewards, setMineRewards] = useState(0)
+  const [minesRemaining, setMinesRemaining] = useState(8)
+  const [gameStarted, setGameStarted] = useState(false)
 
   // Магазин апгрейдов
   const upgrades = [
@@ -232,6 +241,141 @@ const Index = () => {
     playPurchaseSound()
   }
 
+  // Функции для мини-игры с динамитами
+  const initializeMineField = () => {
+    const size = 8
+    const dynamiteCount = 8
+    const field = Array(size).fill(null).map(() => 
+      Array(size).fill(null).map(() => ({
+        revealed: false,
+        hasDynamite: false,
+        reward: Math.floor(Math.random() * 50) + 10, // 10-59 очков за клетку
+        adjacentDynamites: 0
+      }))
+    )
+    
+    // Размещаем динамиты случайно
+    let placed = 0
+    while (placed < dynamiteCount) {
+      const row = Math.floor(Math.random() * size)
+      const col = Math.floor(Math.random() * size)
+      if (!field[row][col].hasDynamite) {
+        field[row][col].hasDynamite = true
+        placed++
+      }
+    }
+    
+    // Вычисляем количество соседних динамитов
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        if (!field[row][col].hasDynamite) {
+          let count = 0
+          for (let i = -1; i <= 1; i++) {
+            for (let j = -1; j <= 1; j++) {
+              const newRow = row + i
+              const newCol = col + j
+              if (newRow >= 0 && newRow < size && newCol >= 0 && newCol < size) {
+                if (field[newRow][newCol].hasDynamite) count++
+              }
+            }
+          }
+          field[row][col].adjacentDynamites = count
+        }
+      }
+    }
+    
+    setMineField(field)
+    setGameOver(false)
+    setGameWon(false)
+    setMineRewards(0)
+    setMinesRemaining(dynamiteCount)
+    setGameStarted(true)
+  }
+
+  const revealCell = (row: number, col: number) => {
+    if (gameOver || gameWon) return
+    if (mineField[row][col].revealed) return
+    
+    const newField = [...mineField]
+    newField[row][col].revealed = true
+    
+    if (newField[row][col].hasDynamite) {
+      setGameOver(true)
+      setGameStarted(false)
+      // Показываем все динамиты
+      for (let i = 0; i < newField.length; i++) {
+        for (let j = 0; j < newField[i].length; j++) {
+          if (newField[i][j].hasDynamite) {
+            newField[i][j].revealed = true
+          }
+        }
+      }
+      playClickSound() // Звук взрыва
+    } else {
+      const reward = newField[row][col].reward
+      setMineRewards(prev => prev + reward)
+      
+      // Автооткрытие пустых клеток
+      if (newField[row][col].adjacentDynamites === 0) {
+        const toReveal = [[row, col]]
+        const visited = new Set<string>()
+        
+        while (toReveal.length > 0) {
+          const [currentRow, currentCol] = toReveal.pop()!
+          const key = `${currentRow}-${currentCol}`
+          
+          if (visited.has(key)) continue
+          visited.add(key)
+          
+          for (let i = -1; i <= 1; i++) {
+            for (let j = -1; j <= 1; j++) {
+              const newRow = currentRow + i
+              const newCol = currentCol + j
+              if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+                if (!newField[newRow][newCol].revealed && !newField[newRow][newCol].hasDynamite) {
+                  newField[newRow][newCol].revealed = true
+                  if (newField[newRow][newCol].adjacentDynamites === 0) {
+                    toReveal.push([newRow, newCol])
+                  }
+                  setMineRewards(prev => prev + newField[newRow][newCol].reward)
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // Проверяем победу
+      let unrevealedSafe = 0
+      for (let i = 0; i < newField.length; i++) {
+        for (let j = 0; j < newField[i].length; j++) {
+          if (!newField[i][j].revealed && !newField[i][j].hasDynamite) {
+            unrevealedSafe++
+          }
+        }
+      }
+      
+      if (unrevealedSafe === 0) {
+        setGameWon(true)
+        setGameStarted(false)
+        const bonusReward = 500 // Бонус за победу
+        setMineRewards(prev => prev + bonusReward)
+        playPurchaseSound() // Звук победы
+      }
+    }
+    
+    setMineField(newField)
+  }
+
+  const collectMineRewards = () => {
+    setScore(prev => prev + mineRewards)
+    setMineRewards(0)
+    setGameStarted(false)
+    setGameOver(false)
+    setGameWon(false)
+    setMineField([])
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-300 via-purple-300 to-indigo-400 p-4">
       <div className="max-w-7xl mx-auto">
@@ -268,46 +412,189 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Игровая зона */}
           <div className="lg:col-span-2 flex flex-col items-center">
-            <div className="relative mb-8">
-              <Button
-                onClick={handleClick}
-                className={`w-80 h-80 rounded-full text-8xl bg-gradient-to-br from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400 border-8 border-white shadow-2xl transition-all duration-200 ${
-                  clickAnimation ? 'scale-95' : 'hover:scale-105'
-                }`}
-                style={{fontFamily: 'Comic Sans MS, cursive'}}
+            {/* Переключение между вкладками */}
+            <div className="mb-8 grid grid-cols-2 gap-4 w-full max-w-md">
+              <Button 
+                onClick={() => setActiveTab('main')}
+                className={`h-16 ${activeTab === 'main' ? 'bg-gradient-to-r from-green-400 to-blue-500' : 'bg-gray-400'} hover:from-green-300 hover:to-blue-400 text-white font-bold rounded-2xl`}
               >
-                <img 
-                  src="/img/c67dac53-93f2-4502-9446-78176cf00d79.jpg" 
-                  alt="Кликер" 
-                  className="w-full h-full object-cover rounded-full"
-                />
+                <Icon name="Zap" className="mr-2" />
+                Кликер
               </Button>
-              {clickAnimation && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="text-6xl font-bold text-white animate-bounce">+{clickPower}</span>
-                </div>
-              )}
+              <Button 
+                onClick={() => setActiveTab('minigame')}
+                className={`h-16 ${activeTab === 'minigame' ? 'bg-gradient-to-r from-purple-400 to-pink-500' : 'bg-gray-400'} hover:from-purple-300 hover:to-pink-400 text-white font-bold rounded-2xl`}
+              >
+                <Icon name="Gamepad2" className="mr-2" />
+                Шахта
+              </Button>
             </div>
 
-            {clicksPerSecond > 0 && (
-              <div className="text-center">
-                <Badge variant="secondary" className="text-2xl px-6 py-2 bg-white/90">
-                  🔥 {clicksPerSecond} кликов/сек
-                </Badge>
-              </div>
+            {/* Основной кликер */}
+            {activeTab === 'main' && (
+              <>
+                <div className="relative mb-8">
+                  <Button
+                    onClick={handleClick}
+                    className={`w-80 h-80 rounded-full text-8xl bg-gradient-to-br from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400 border-8 border-white shadow-2xl transition-all duration-200 ${
+                      clickAnimation ? 'scale-95' : 'hover:scale-105'
+                    }`}
+                    style={{fontFamily: 'Comic Sans MS, cursive'}}
+                  >
+                    <img 
+                      src="/img/c67dac53-93f2-4502-9446-78176cf00d79.jpg" 
+                      alt="Кликер" 
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  </Button>
+                  {clickAnimation && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <span className="text-6xl font-bold text-white animate-bounce">+{clickPower}</span>
+                    </div>
+                  )}
+                </div>
+
+                {clicksPerSecond > 0 && (
+                  <div className="text-center">
+                    <Badge variant="secondary" className="text-2xl px-6 py-2 bg-white/90">
+                      🔥 {clicksPerSecond} кликов/сек
+                    </Badge>
+                  </div>
+                )}
+              </>
             )}
 
-            {/* События и мини-игры (заглушки) */}
-            <div className="mt-8 grid grid-cols-2 gap-4 w-full max-w-md">
-              <Button className="h-16 bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-300 hover:to-blue-400 text-white font-bold rounded-2xl">
-                <Icon name="Zap" className="mr-2" />
-                Событие
-              </Button>
-              <Button className="h-16 bg-gradient-to-r from-purple-400 to-pink-500 hover:from-purple-300 hover:to-pink-400 text-white font-bold rounded-2xl">
-                <Icon name="Gamepad2" className="mr-2" />
-                Мини-игра
-              </Button>
-            </div>
+            {/* Мини-игра с динамитами */}
+            {activeTab === 'minigame' && (
+              <div className="w-full max-w-2xl">
+                <Card className="p-6 bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl">
+                  <h2 className="text-4xl font-bold mb-6 text-center text-orange-700" style={{fontFamily: 'Comic Sans MS, cursive'}}>
+                    💣 Динамитная Шахта 💣
+                  </h2>
+                  
+                  {/* Статистика игры */}
+                  <div className="flex justify-center gap-4 mb-6 text-lg font-semibold flex-wrap">
+                    <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-full px-4 py-2">
+                      💰 Награды: {mineRewards}
+                    </div>
+                    <div className="bg-gradient-to-r from-red-100 to-pink-100 rounded-full px-4 py-2">
+                      💣 Динамитов: {minesRemaining}
+                    </div>
+                  </div>
+
+                  {/* Игровое поле */}
+                  {!gameStarted && mineField.length === 0 && (
+                    <div className="text-center space-y-4">
+                      <p className="text-lg text-gray-600">
+                        Добро пожаловать в шахту! 🏔️
+                      </p>
+                      <p className="text-gray-600">
+                        Найдите сокровища, но избегайте динамитов!
+                      </p>
+                      <Button 
+                        onClick={initializeMineField}
+                        className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white font-bold px-8 py-3 rounded-2xl text-xl"
+                      >
+                        🚀 Начать игру
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Сетка минного поля */}
+                  {mineField.length > 0 && (
+                    <div className="grid grid-cols-8 gap-1 mx-auto max-w-md mb-6">
+                      {mineField.map((row, rowIndex) =>
+                        row.map((cell, colIndex) => (
+                          <Button
+                            key={`${rowIndex}-${colIndex}`}
+                            onClick={() => revealCell(rowIndex, colIndex)}
+                            disabled={cell.revealed || gameOver || gameWon}
+                            className={`w-12 h-12 text-sm font-bold border-2 ${
+                              cell.revealed
+                                ? cell.hasDynamite
+                                  ? 'bg-red-500 text-white border-red-600'
+                                  : cell.adjacentDynamites > 0
+                                  ? 'bg-yellow-100 border-yellow-300 text-gray-800'
+                                  : 'bg-green-100 border-green-300 text-gray-800'
+                                : 'bg-gray-300 hover:bg-gray-200 border-gray-400 text-gray-800'
+                            }`}
+                          >
+                            {cell.revealed ? (
+                              cell.hasDynamite ? '💥' : 
+                              cell.adjacentDynamites > 0 ? cell.adjacentDynamites : 
+                              '💎'
+                            ) : '❓'}
+                          </Button>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Результаты игры */}
+                  {gameOver && (
+                    <div className="text-center space-y-4">
+                      <div className="bg-gradient-to-r from-red-100 to-pink-100 p-4 rounded-2xl">
+                        <h3 className="text-2xl font-bold text-red-700 mb-2">💥 Взрыв!</h3>
+                        <p className="text-gray-600">Вы наткнулись на динамит!</p>
+                        <p className="text-lg font-semibold">Собрано: {mineRewards} очков</p>
+                      </div>
+                      <div className="flex gap-4 justify-center">
+                        {mineRewards > 0 && (
+                          <Button 
+                            onClick={collectMineRewards}
+                            className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-400 hover:to-blue-400 text-white font-bold px-6 py-2 rounded-xl"
+                          >
+                            💰 Забрать награды
+                          </Button>
+                        )}
+                        <Button 
+                          onClick={initializeMineField}
+                          className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white font-bold px-6 py-2 rounded-xl"
+                        >
+                          🔄 Новая игра
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {gameWon && (
+                    <div className="text-center space-y-4">
+                      <div className="bg-gradient-to-r from-green-100 to-blue-100 p-4 rounded-2xl">
+                        <h3 className="text-2xl font-bold text-green-700 mb-2">🎉 Победа!</h3>
+                        <p className="text-gray-600">Вы очистили всю шахту!</p>
+                        <p className="text-lg font-semibold">Общая награда: {mineRewards} очков</p>
+                        <p className="text-sm text-blue-600">Включая бонус +500 за победу!</p>
+                      </div>
+                      <div className="flex gap-4 justify-center">
+                        <Button 
+                          onClick={collectMineRewards}
+                          className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-400 hover:to-blue-400 text-white font-bold px-6 py-2 rounded-xl"
+                        >
+                          🏆 Забрать награды
+                        </Button>
+                        <Button 
+                          onClick={initializeMineField}
+                          className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white font-bold px-6 py-2 rounded-xl"
+                        >
+                          🔄 Новая игра
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Правила игры */}
+                  <div className="mt-6 bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-2xl">
+                    <h4 className="font-bold text-blue-700 mb-2">📋 Правила:</h4>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li>• Кликайте на клетки, чтобы найти сокровища</li>
+                      <li>• Числа показывают количество динамитов рядом</li>
+                      <li>• Избегайте клеток с динамитами 💣</li>
+                      <li>• Очистите всё поле для максимальной награды!</li>
+                    </ul>
+                  </div>
+                </Card>
+              </div>
+            )}
           </div>
 
           {/* Боковая панель */}
