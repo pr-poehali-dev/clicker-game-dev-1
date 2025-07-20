@@ -28,6 +28,42 @@ const Index = () => {
   const [minesRemaining, setMinesRemaining] = useState(8)
   const [gameStarted, setGameStarted] = useState(false)
 
+  // Система тем фона
+  const [currentTheme, setCurrentTheme] = useState('default')
+  
+  const themes = {
+    default: {
+      name: '🌈 По умолчанию',
+      background: 'bg-gradient-to-br from-pink-300 via-purple-300 to-indigo-400',
+      cardBg: 'bg-white/90',
+      headerBg: 'bg-white/20'
+    },
+    spongebob: {
+      name: '🍍 СпанчБоб',
+      background: 'bg-gradient-to-br from-yellow-200 via-orange-200 to-blue-300',
+      cardBg: 'bg-yellow-100/95',
+      headerBg: 'bg-yellow-300/30'
+    },
+    luntik: {
+      name: '🌙 Лунтик',
+      background: 'bg-gradient-to-br from-purple-200 via-pink-200 to-blue-200',
+      cardBg: 'bg-purple-50/95',
+      headerBg: 'bg-purple-300/30'
+    },
+    brawlstars: {
+      name: '⚡ Brawl Stars',
+      background: 'bg-gradient-to-br from-red-400 via-orange-400 to-yellow-400',
+      cardBg: 'bg-orange-100/95',
+      headerBg: 'bg-red-400/30'
+    },
+    space: {
+      name: '🚀 Космос',
+      background: 'bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900',
+      cardBg: 'bg-slate-800/80',
+      headerBg: 'bg-slate-700/30'
+    }
+  }
+
   // Магазин апгрейдов
   const upgrades = [
     { id: 'power', name: 'Мощный Клик', cost: 50, effect: 'Увеличивает силу клика на 1', owned: 0, emoji: '💪' },
@@ -377,35 +413,87 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-300 via-purple-300 to-indigo-400 p-4">
-      <div className="max-w-7xl mx-auto">
+    <div className={`min-h-screen ${themes[currentTheme as keyof typeof themes].background} p-4 relative overflow-hidden`}>
+      {/* Декоративные элементы для тем */}
+      {currentTheme === 'space' && (
+        <>
+          <div className="absolute top-10 left-10 text-white text-2xl animate-pulse">⭐</div>
+          <div className="absolute top-20 right-20 text-white text-xl animate-bounce">🌟</div>
+          <div className="absolute bottom-20 left-1/4 text-white text-lg animate-pulse">✨</div>
+          <div className="absolute top-1/3 right-10 text-white text-xl animate-bounce delay-500">💫</div>
+          <div className="absolute bottom-1/3 right-1/3 text-white text-sm animate-pulse delay-1000">⭐</div>
+        </>
+      )}
+      {currentTheme === 'spongebob' && (
+        <>
+          <div className="absolute top-16 left-16 text-4xl animate-bounce">🍍</div>
+          <div className="absolute top-32 right-32 text-3xl animate-pulse">🐚</div>
+          <div className="absolute bottom-24 left-1/4 text-2xl animate-bounce delay-300">🐟</div>
+          <div className="absolute top-1/2 right-16 text-3xl animate-pulse delay-700">🦀</div>
+        </>
+      )}
+      {currentTheme === 'luntik' && (
+        <>
+          <div className="absolute top-12 left-12 text-3xl animate-pulse">🌙</div>
+          <div className="absolute top-24 right-24 text-2xl animate-bounce">🦋</div>
+          <div className="absolute bottom-32 left-1/3 text-xl animate-pulse delay-500">🌸</div>
+          <div className="absolute top-2/3 right-12 text-2xl animate-bounce delay-1000">🌺</div>
+        </>
+      )}
+      {currentTheme === 'brawlstars' && (
+        <>
+          <div className="absolute top-20 left-20 text-3xl animate-bounce">💥</div>
+          <div className="absolute top-40 right-40 text-2xl animate-pulse">⚡</div>
+          <div className="absolute bottom-40 left-1/3 text-xl animate-bounce delay-300">🔥</div>
+          <div className="absolute top-1/2 right-20 text-2xl animate-pulse delay-700">💯</div>
+        </>
+      )}
+      
+      <div className="max-w-7xl mx-auto relative z-10">
         {/* Шапка */}
         <div className="text-center mb-8">
-          <h1 className="text-6xl font-bold text-white mb-4 drop-shadow-lg" style={{fontFamily: 'Comic Sans MS, cursive'}}>
+          <h1 className={`text-6xl font-bold ${currentTheme === 'space' ? 'text-white' : 'text-white'} mb-4 drop-shadow-lg`} style={{fontFamily: 'Comic Sans MS, cursive'}}>
             🎮 Супер Кликер 🎮
           </h1>
-          <div className="flex justify-center gap-4 text-white text-lg font-semibold flex-wrap">
-            <div className="bg-white/20 rounded-full px-4 py-2 backdrop-blur-sm">
+          <div className={`flex justify-center gap-4 ${currentTheme === 'space' ? 'text-white' : 'text-white'} text-lg font-semibold flex-wrap mb-4`}>
+            <div className={`${themes[currentTheme as keyof typeof themes].headerBg} rounded-full px-4 py-2 backdrop-blur-sm`}>
               💰 Очки: {score.toLocaleString()}
             </div>
-            <div className="bg-white/20 rounded-full px-4 py-2 backdrop-blur-sm">
+            <div className={`${themes[currentTheme as keyof typeof themes].headerBg} rounded-full px-4 py-2 backdrop-blur-sm`}>
               ⚡ Сила: {clickPower}x
             </div>
-            <div className="bg-white/20 rounded-full px-4 py-2 backdrop-blur-sm">
+            <div className={`${themes[currentTheme as keyof typeof themes].headerBg} rounded-full px-4 py-2 backdrop-blur-sm`}>
               🤖 Авто: {autoClickers}/сек
             </div>
-            <div className="bg-white/20 rounded-full px-4 py-2 backdrop-blur-sm">
+            <div className={`${themes[currentTheme as keyof typeof themes].headerBg} rounded-full px-4 py-2 backdrop-blur-sm`}>
               🏭 Фабрики: {factories}
             </div>
-            <div className="bg-white/20 rounded-full px-4 py-2 backdrop-blur-sm">
+            <div className={`${themes[currentTheme as keyof typeof themes].headerBg} rounded-full px-4 py-2 backdrop-blur-sm`}>
               ⭐ Престиж: {prestigePoints} (x{prestigeMultiplier.toFixed(1)})
             </div>
             <Button
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className="bg-white/20 hover:bg-white/30 text-white border-0 rounded-full px-4 py-2"
+              className={`${themes[currentTheme as keyof typeof themes].headerBg} hover:bg-white/30 ${currentTheme === 'space' ? 'text-white' : 'text-white'} border-0 rounded-full px-4 py-2`}
             >
               {soundEnabled ? '🔊' : '🔇'}
             </Button>
+          </div>
+          
+          {/* Селектор тем */}
+          <div className="flex justify-center gap-2 flex-wrap">
+            {Object.entries(themes).map(([key, theme]) => (
+              <Button
+                key={key}
+                onClick={() => setCurrentTheme(key)}
+                className={`${
+                  currentTheme === key
+                    ? 'bg-white/40 ring-2 ring-white'
+                    : 'bg-white/20 hover:bg-white/30'
+                } ${currentTheme === 'space' ? 'text-white' : 'text-white'} border-0 rounded-xl px-3 py-2 text-sm transition-all`}
+              >
+                {theme.name}
+              </Button>
+            ))}
           </div>
         </div>
 
@@ -467,8 +555,8 @@ const Index = () => {
             {/* Мини-игра с динамитами */}
             {activeTab === 'minigame' && (
               <div className="w-full max-w-2xl">
-                <Card className="p-6 bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl">
-                  <h2 className="text-4xl font-bold mb-6 text-center text-orange-700" style={{fontFamily: 'Comic Sans MS, cursive'}}>
+                <Card className={`p-6 ${themes[currentTheme as keyof typeof themes].cardBg} backdrop-blur-sm rounded-3xl shadow-xl`}>
+                  <h2 className={`text-4xl font-bold mb-6 text-center ${currentTheme === 'space' ? 'text-white' : 'text-orange-700'}`} style={{fontFamily: 'Comic Sans MS, cursive'}}>
                     💣 Динамитная Шахта 💣
                   </h2>
                   
@@ -600,8 +688,8 @@ const Index = () => {
           {/* Боковая панель */}
           <div className="space-y-6">
             {/* Магазин */}
-            <Card className="p-6 bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl">
-              <h2 className="text-3xl font-bold mb-4 text-center text-purple-700" style={{fontFamily: 'Comic Sans MS, cursive'}}>
+            <Card className={`p-6 ${themes[currentTheme as keyof typeof themes].cardBg} backdrop-blur-sm rounded-3xl shadow-xl`}>
+              <h2 className={`text-3xl font-bold mb-4 text-center ${currentTheme === 'space' ? 'text-white' : 'text-purple-700'}`} style={{fontFamily: 'Comic Sans MS, cursive'}}>
                 🛒 Магазин
               </h2>
               <div className="space-y-4">
@@ -628,8 +716,8 @@ const Index = () => {
             </Card>
 
             {/* Достижения */}
-            <Card className="p-6 bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl">
-              <h2 className="text-3xl font-bold mb-4 text-center text-green-700" style={{fontFamily: 'Comic Sans MS, cursive'}}>
+            <Card className={`p-6 ${themes[currentTheme as keyof typeof themes].cardBg} backdrop-blur-sm rounded-3xl shadow-xl`}>
+              <h2 className={`text-3xl font-bold mb-4 text-center ${currentTheme === 'space' ? 'text-white' : 'text-green-700'}`} style={{fontFamily: 'Comic Sans MS, cursive'}}>
                 🏆 Достижения
               </h2>
               <div className="space-y-3">
@@ -664,8 +752,8 @@ const Index = () => {
             </Card>
 
             {/* Престиж */}
-            <Card className="p-6 bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl">
-              <h2 className="text-3xl font-bold mb-4 text-center text-red-700" style={{fontFamily: 'Comic Sans MS, cursive'}}>
+            <Card className={`p-6 ${themes[currentTheme as keyof typeof themes].cardBg} backdrop-blur-sm rounded-3xl shadow-xl`}>
+              <h2 className={`text-3xl font-bold mb-4 text-center ${currentTheme === 'space' ? 'text-white' : 'text-red-700'}`} style={{fontFamily: 'Comic Sans MS, cursive'}}>
                 ⭐ Престиж
               </h2>
               <div className="text-center space-y-4">
