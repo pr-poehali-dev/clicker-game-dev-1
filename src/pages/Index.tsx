@@ -28,6 +28,23 @@ const Index = () => {
   const [minesRemaining, setMinesRemaining] = useState(8)
   const [gameStarted, setGameStarted] = useState(false)
 
+  // Система уровней с деревьями
+  const [currentLevel, setCurrentLevel] = useState(1)
+  const [totalClicksForLevel, setTotalClicksForLevel] = useState(0)
+  
+  const levels = [
+    { level: 1, name: '🌱 Росток', clicksRequired: 100, emoji: '🌱' },
+    { level: 2, name: '🌿 Побег', clicksRequired: 500, emoji: '🌿' },
+    { level: 3, name: '🪴 Саженец', clicksRequired: 1200, emoji: '🪴' },
+    { level: 4, name: '🌳 Молодое дерево', clicksRequired: 2000, emoji: '🌳' },
+    { level: 5, name: '🎋 Бамбук', clicksRequired: 2800, emoji: '🎋' },
+    { level: 6, name: '🌲 Ель', clicksRequired: 5000, emoji: '🌲' },
+    { level: 7, name: '🌴 Пальма', clicksRequired: 7000, emoji: '🌴' },
+    { level: 8, name: '🍃 Могучее дерево', clicksRequired: 10000, emoji: '🍃' },
+    { level: 9, name: '🌺 Цветущее дерево', clicksRequired: 14000, emoji: '🌺' },
+    { level: 10, name: '🌳 Дуб', clicksRequired: 20000, emoji: '🌳' }
+  ]
+
   // Система тем фона
   const [currentTheme, setCurrentTheme] = useState('default')
   
@@ -186,9 +203,87 @@ const Index = () => {
     )
   }, [score, totalClicks, clicksPerSecond, soundEnabled])
 
+  // Проверка уровней
+  useEffect(() => {
+    const nextLevel = levels.find(level => level.level === currentLevel + 1)
+    if (nextLevel && totalClicksForLevel >= nextLevel.clicksRequired) {
+      setCurrentLevel(currentLevel + 1)
+      setTotalClicksForLevel(0)
+      
+      // Показываем уведомление о повышении уровня
+      const levelUpEffect = document.createElement('div')
+      levelUpEffect.innerText = `🎉 УРОВЕНЬ ПОВЫШЕН! ${nextLevel.name}`
+      levelUpEffect.style.cssText = `
+        position: fixed;
+        top: 30%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 2rem;
+        font-weight: bold;
+        color: #10B981;
+        pointer-events: none;
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 1rem 2rem;
+        border-radius: 1rem;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        animation: fadeOut 3s ease-out forwards;
+      `
+      document.body.appendChild(levelUpEffect)
+      setTimeout(() => levelUpEffect.remove(), 3000)
+      
+      if (soundEnabled) {
+        playPurchaseSound()
+      }
+    }
+  }, [totalClicksForLevel, currentLevel, soundEnabled])
+
+  // Сохранение прогресса в localStorage
+  useEffect(() => {
+    const gameData = {
+      score,
+      totalClicks,
+      totalClicksForLevel,
+      currentLevel,
+      clickPower,
+      autoClickers,
+      factories,
+      prestigePoints,
+      prestigeMultiplier,
+      goldenClickChance,
+      currentTheme,
+      upgradesList,
+      achievementsList
+    }
+    localStorage.setItem('clickerGameData', JSON.stringify(gameData))
+  }, [score, totalClicks, totalClicksForLevel, currentLevel, clickPower, autoClickers, factories, 
+      prestigePoints, prestigeMultiplier, goldenClickChance, currentTheme, upgradesList, achievementsList])
+
+  // Загрузка прогресса из localStorage
+  useEffect(() => {
+    const savedData = localStorage.getItem('clickerGameData')
+    if (savedData) {
+      const gameData = JSON.parse(savedData)
+      setScore(gameData.score || 0)
+      setTotalClicks(gameData.totalClicks || 0)
+      setTotalClicksForLevel(gameData.totalClicksForLevel || 0)
+      setCurrentLevel(gameData.currentLevel || 1)
+      setClickPower(gameData.clickPower || 1)
+      setAutoClickers(gameData.autoClickers || 0)
+      setFactories(gameData.factories || 0)
+      setPrestigePoints(gameData.prestigePoints || 0)
+      setPrestigeMultiplier(gameData.prestigeMultiplier || 1)
+      setGoldenClickChance(gameData.goldenClickChance || 0)
+      setCurrentTheme(gameData.currentTheme || 'default')
+      if (gameData.upgradesList) setUpgradesList(gameData.upgradesList)
+      if (gameData.achievementsList) setAchievementsList(gameData.achievementsList)
+    }
+  }, [])
+
   const handleClick = () => {
     playClickSound()
     setTotalClicks(prev => prev + 1)
+    setTotalClicksForLevel(prev => prev + 1)
     
     // Проверка на золотой клик
     const isGoldenClick = goldenClickChance > 0 && Math.random() < goldenClickChance / 100
@@ -412,6 +507,45 @@ const Index = () => {
     setMineField([])
   }
 
+  const resetProgress = () => {
+    if (confirm('Вы уверены, что хотите сбросить весь прогресс? Это действие нельзя отменить!')) {
+      // Очищаем localStorage
+      localStorage.removeItem('clickerGameData')
+      
+      // Сбрасываем все состояния к начальным значениям
+      setScore(0)
+      setClickPower(1)
+      setAutoClickers(0)
+      setClicksPerSecond(0)
+      setLastClickTime(0)
+      setClickAnimation(false)
+      setTotalClicks(0)
+      setTotalClicksForLevel(0)
+      setCurrentLevel(1)
+      setPrestigePoints(0)
+      setPrestigeMultiplier(1)
+      setSoundEnabled(true)
+      setFactories(0)
+      setGoldenClickChance(0)
+      setCurrentTheme('default')
+      
+      // Сбрасываем мини-игру
+      setActiveTab('main')
+      setMineField([])
+      setGameOver(false)
+      setGameWon(false)
+      setMineRewards(0)
+      setMinesRemaining(8)
+      setGameStarted(false)
+      
+      // Сбрасываем списки улучшений и достижений к начальным
+      setUpgradesList(upgrades)
+      setAchievementsList(achievements)
+      
+      alert('Прогресс успешно сброшен!')
+    }
+  }
+
   return (
     <div className={`min-h-screen ${themes[currentTheme as keyof typeof themes].background} p-4 relative overflow-hidden`}>
       {/* Декоративные элементы для тем */}
@@ -477,6 +611,13 @@ const Index = () => {
             >
               {soundEnabled ? '🔊' : '🔇'}
             </Button>
+            <Button
+              onClick={resetProgress}
+              className={`${themes[currentTheme as keyof typeof themes].headerBg} hover:bg-red-500/30 ${currentTheme === 'space' ? 'text-white' : 'text-white'} border-0 rounded-full px-4 py-2 transition-all`}
+              title="Сбросить весь прогресс"
+            >
+              🗑️ Сброс
+            </Button>
           </div>
           
           {/* Селектор тем */}
@@ -522,18 +663,34 @@ const Index = () => {
             {activeTab === 'main' && (
               <>
                 <div className="relative mb-8">
+                  <div className="text-center mb-4">
+                    <h3 className={`text-2xl font-bold ${currentTheme === 'space' ? 'text-white' : 'text-gray-800'}`} style={{fontFamily: 'Comic Sans MS, cursive'}}>
+                      Уровень {currentLevel}: {levels.find(l => l.level === currentLevel)?.name}
+                    </h3>
+                    <div className="mt-2">
+                      <div className={`text-sm ${currentTheme === 'space' ? 'text-gray-300' : 'text-gray-600'}`}>
+                        Прогресс: {totalClicksForLevel} / {levels.find(l => l.level === currentLevel + 1)?.clicksRequired || '∞'} кликов
+                      </div>
+                      {levels.find(l => l.level === currentLevel + 1) && (
+                        <Progress 
+                          value={(totalClicksForLevel / levels.find(l => l.level === currentLevel + 1)!.clicksRequired) * 100} 
+                          className="w-64 mx-auto mt-2"
+                        />
+                      )}
+                    </div>
+                  </div>
+                  
                   <Button
                     onClick={handleClick}
-                    className={`w-80 h-80 rounded-full text-8xl bg-gradient-to-br from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400 border-8 border-white shadow-2xl transition-all duration-200 ${
+                    className={`w-80 h-80 rounded-full text-8xl bg-gradient-to-br from-green-400 to-emerald-600 hover:from-green-300 hover:to-emerald-500 border-8 border-white shadow-2xl transition-all duration-200 ${
                       clickAnimation ? 'scale-95' : 'hover:scale-105'
                     }`}
                     style={{fontFamily: 'Comic Sans MS, cursive'}}
                   >
-                    <img 
-                      src="/img/c67dac53-93f2-4502-9446-78176cf00d79.jpg" 
-                      alt="Кликер" 
-                      className="w-full h-full object-cover rounded-full"
-                    />
+                    <div className="text-center">
+                      <div className="text-9xl mb-2">{levels.find(l => l.level === currentLevel)?.emoji}</div>
+                      <div className="text-xl font-bold text-white shadow-lg">+{clickPower}</div>
+                    </div>
                   </Button>
                   {clickAnimation && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
