@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import Icon from '@/components/ui/icon'
 
 const Index = () => {
@@ -238,13 +237,11 @@ const Index = () => {
     }
   }, [totalClicksForLevel, currentLevel, soundEnabled])
 
-  // Загрузка прогресса из localStorage (только при монтировании)
-  const [isLoaded, setIsLoaded] = useState(false)
-  
+  // Загрузка данных при старте
   useEffect(() => {
-    const savedData = localStorage.getItem('clickerGameData')
-    if (savedData) {
-      try {
+    try {
+      const savedData = localStorage.getItem('clickerGameData')
+      if (savedData) {
         const gameData = JSON.parse(savedData)
         setScore(gameData.score || 0)
         setTotalClicks(gameData.totalClicks || 0)
@@ -259,34 +256,35 @@ const Index = () => {
         setCurrentTheme(gameData.currentTheme || 'default')
         if (gameData.upgradesList) setUpgradesList(gameData.upgradesList)
         if (gameData.achievementsList) setAchievementsList(gameData.achievementsList)
-      } catch (error) {
-        console.error('Ошибка загрузки сохранения:', error)
       }
+    } catch (error) {
+      console.log('Новая игра')
     }
-    setIsLoaded(true)
   }, [])
 
-  // Сохранение прогресса в localStorage (только после загрузки)
+  // Автосохранение
   useEffect(() => {
-    if (!isLoaded) return
+    const timeoutId = setTimeout(() => {
+      const gameData = {
+        score,
+        totalClicks,
+        totalClicksForLevel,
+        currentLevel,
+        clickPower,
+        autoClickers,
+        factories,
+        prestigePoints,
+        prestigeMultiplier,
+        goldenClickChance,
+        currentTheme,
+        upgradesList,
+        achievementsList
+      }
+      localStorage.setItem('clickerGameData', JSON.stringify(gameData))
+    }, 1000)
     
-    const gameData = {
-      score,
-      totalClicks,
-      totalClicksForLevel,
-      currentLevel,
-      clickPower,
-      autoClickers,
-      factories,
-      prestigePoints,
-      prestigeMultiplier,
-      goldenClickChance,
-      currentTheme,
-      upgradesList,
-      achievementsList
-    }
-    localStorage.setItem('clickerGameData', JSON.stringify(gameData))
-  }, [isLoaded, score, totalClicks, totalClicksForLevel, currentLevel, clickPower, autoClickers, factories, 
+    return () => clearTimeout(timeoutId)
+  }, [score, totalClicks, totalClicksForLevel, currentLevel, clickPower, autoClickers, factories, 
       prestigePoints, prestigeMultiplier, goldenClickChance, currentTheme, upgradesList, achievementsList])
 
   const handleClick = () => {
@@ -555,20 +553,6 @@ const Index = () => {
     }
   }
 
-  // Показываем загрузку пока данные не загрузились
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-300 via-purple-300 to-indigo-400 flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="text-8xl animate-bounce mb-4">🌱</div>
-          <div className="text-2xl font-bold" style={{fontFamily: 'Comic Sans MS, cursive'}}>
-            Загружаю твой космический сад...
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className={`min-h-screen ${themes[currentTheme as keyof typeof themes].background} p-4 relative overflow-hidden`}>
       {/* Декоративные элементы для тем */}
@@ -695,10 +679,14 @@ const Index = () => {
                         Прогресс: {totalClicksForLevel} / {levels.find(l => l.level === currentLevel + 1)?.clicksRequired || '∞'} кликов
                       </div>
                       {levels.find(l => l.level === currentLevel + 1) && (
-                        <Progress 
-                          value={(totalClicksForLevel / levels.find(l => l.level === currentLevel + 1)!.clicksRequired) * 100} 
-                          className="w-64 mx-auto mt-2"
-                        />
+                        <div className="w-64 mx-auto mt-2 bg-gray-200 rounded-full h-3">
+                          <div 
+                            className="bg-green-500 h-3 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${Math.min(100, Math.max(0, (totalClicksForLevel / (levels.find(l => l.level === currentLevel + 1)?.clicksRequired || 1)) * 100))}%`
+                            }}
+                          />
+                        </div>
                       )}
                     </div>
                   </div>
