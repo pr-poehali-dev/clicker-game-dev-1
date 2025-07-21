@@ -238,8 +238,38 @@ const Index = () => {
     }
   }, [totalClicksForLevel, currentLevel, soundEnabled])
 
-  // Сохранение прогресса в localStorage
+  // Загрузка прогресса из localStorage (только при монтировании)
+  const [isLoaded, setIsLoaded] = useState(false)
+  
   useEffect(() => {
+    const savedData = localStorage.getItem('clickerGameData')
+    if (savedData) {
+      try {
+        const gameData = JSON.parse(savedData)
+        setScore(gameData.score || 0)
+        setTotalClicks(gameData.totalClicks || 0)
+        setTotalClicksForLevel(gameData.totalClicksForLevel || 0)
+        setCurrentLevel(gameData.currentLevel || 1)
+        setClickPower(gameData.clickPower || 1)
+        setAutoClickers(gameData.autoClickers || 0)
+        setFactories(gameData.factories || 0)
+        setPrestigePoints(gameData.prestigePoints || 0)
+        setPrestigeMultiplier(gameData.prestigeMultiplier || 1)
+        setGoldenClickChance(gameData.goldenClickChance || 0)
+        setCurrentTheme(gameData.currentTheme || 'default')
+        if (gameData.upgradesList) setUpgradesList(gameData.upgradesList)
+        if (gameData.achievementsList) setAchievementsList(gameData.achievementsList)
+      } catch (error) {
+        console.error('Ошибка загрузки сохранения:', error)
+      }
+    }
+    setIsLoaded(true)
+  }, [])
+
+  // Сохранение прогресса в localStorage (только после загрузки)
+  useEffect(() => {
+    if (!isLoaded) return
+    
     const gameData = {
       score,
       totalClicks,
@@ -256,29 +286,8 @@ const Index = () => {
       achievementsList
     }
     localStorage.setItem('clickerGameData', JSON.stringify(gameData))
-  }, [score, totalClicks, totalClicksForLevel, currentLevel, clickPower, autoClickers, factories, 
+  }, [isLoaded, score, totalClicks, totalClicksForLevel, currentLevel, clickPower, autoClickers, factories, 
       prestigePoints, prestigeMultiplier, goldenClickChance, currentTheme, upgradesList, achievementsList])
-
-  // Загрузка прогресса из localStorage
-  useEffect(() => {
-    const savedData = localStorage.getItem('clickerGameData')
-    if (savedData) {
-      const gameData = JSON.parse(savedData)
-      setScore(gameData.score || 0)
-      setTotalClicks(gameData.totalClicks || 0)
-      setTotalClicksForLevel(gameData.totalClicksForLevel || 0)
-      setCurrentLevel(gameData.currentLevel || 1)
-      setClickPower(gameData.clickPower || 1)
-      setAutoClickers(gameData.autoClickers || 0)
-      setFactories(gameData.factories || 0)
-      setPrestigePoints(gameData.prestigePoints || 0)
-      setPrestigeMultiplier(gameData.prestigeMultiplier || 1)
-      setGoldenClickChance(gameData.goldenClickChance || 0)
-      setCurrentTheme(gameData.currentTheme || 'default')
-      if (gameData.upgradesList) setUpgradesList(gameData.upgradesList)
-      if (gameData.achievementsList) setAchievementsList(gameData.achievementsList)
-    }
-  }, [])
 
   const handleClick = () => {
     playClickSound()
@@ -544,6 +553,20 @@ const Index = () => {
       
       alert('Прогресс успешно сброшен!')
     }
+  }
+
+  // Показываем загрузку пока данные не загрузились
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-300 via-purple-300 to-indigo-400 flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="text-8xl animate-bounce mb-4">🌱</div>
+          <div className="text-2xl font-bold" style={{fontFamily: 'Comic Sans MS, cursive'}}>
+            Загружаю твой космический сад...
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
