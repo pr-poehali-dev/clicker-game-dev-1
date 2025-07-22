@@ -16,6 +16,15 @@ const Index = () => {
   const [currentLevel, setCurrentLevel] = useState(1)
   const [totalClicksForLevel, setTotalClicksForLevel] = useState(0)
   
+  // Состояние мини-игры с динамитами
+  const [activeTab, setActiveTab] = useState('main')
+  const [mineField, setMineField] = useState<Array<Array<{revealed: boolean, hasDynamite: boolean, reward: number, adjacentDynamites: number}>>>>([])
+  const [gameOver, setGameOver] = useState(false)
+  const [gameWon, setGameWon] = useState(false)
+  const [mineRewards, setMineRewards] = useState(0)
+  const [minesRemaining, setMinesRemaining] = useState(8)
+  const [gameStarted, setGameStarted] = useState(false)
+  
   const levels = [
     { level: 1, name: '🌱 Росток', clicksRequired: 100, emoji: '🌱' },
     { level: 2, name: '🌿 Побег', clicksRequired: 500, emoji: '🌿' },
@@ -83,10 +92,10 @@ const Index = () => {
   useEffect(() => {
     const saveData = {
       score, clickPower, autoClickers, totalClicks, factories,
-      currentLevel, totalClicksForLevel, currentTheme
+      currentLevel, totalClicksForLevel, currentTheme, mineRewards
     }
     localStorage.setItem('cosmicGardenSave', JSON.stringify(saveData))
-  }, [score, clickPower, autoClickers, totalClicks, factories, currentLevel, totalClicksForLevel, currentTheme])
+  }, [score, clickPower, autoClickers, totalClicks, factories, currentLevel, totalClicksForLevel, currentTheme, mineRewards])
 
   // Загрузка игры
   useEffect(() => {
@@ -102,11 +111,30 @@ const Index = () => {
         setCurrentLevel(data.currentLevel || 1)
         setTotalClicksForLevel(data.totalClicksForLevel || 0)
         setCurrentTheme(data.currentTheme || 'default')
+        setMineRewards(data.mineRewards || 0)
       } catch (e) {
         console.log('Ошибка загрузки:', e)
       }
     }
   }, [])
+
+  // Функция сброса игры
+  const resetGame = () => {
+    if (confirm('Вы уверены, что хотите сбросить весь прогресс?')) {
+      localStorage.removeItem('cosmicGardenSave')
+      setScore(0)
+      setClickPower(1)
+      setAutoClickers(0)
+      setTotalClicks(0)
+      setFactories(0)
+      setCurrentLevel(1)
+      setTotalClicksForLevel(0)
+      setCurrentTheme('default')
+      setMineRewards(0)
+      setActiveTab('main')
+      resetMineGame()
+    }
+  }
 
   const handleClick = () => {
     setScore(prev => prev + clickPower)
@@ -128,6 +156,100 @@ const Index = () => {
       setScore(prev => prev - 1000)
       setFactories(prev => prev + 1)
     }
+  }
+
+  // Мини-игра с динамитами
+  const initializeMineField = () => {
+    const size = 8
+    const dynamiteCount = 8
+    const field = Array(size).fill(null).map(() => 
+      Array(size).fill(null).map(() => ({
+        revealed: false,
+        hasDynamite: false,
+        reward: Math.floor(Math.random() * 50) + 10,
+        adjacentDynamites: 0
+      }))
+    )
+
+    // Размещаем динамиты
+    let placedDynamites = 0
+    while (placedDynamites < dynamiteCount) {
+      const row = Math.floor(Math.random() * size)
+      const col = Math.floor(Math.random() * size)
+      if (!field[row][col].hasDynamite) {
+        field[row][col].hasDynamite = true
+        field[row][col].reward = 0
+        placedDynamites++
+      }
+    }
+
+    // Подсчитываем соседние динамиты
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        if (!field[row][col].hasDynamite) {
+          let count = 0
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              const nr = row + dr
+              const nc = col + dc
+              if (nr >= 0 && nr < size && nc >= 0 && nc < size && field[nr][nc].hasDynamite) {
+                count++
+              }
+            }
+          }
+          field[row][col].adjacentDynamites = count
+        }
+      }
+    }
+
+    return field
+  }
+
+  const startMineGame = () => {
+    setMineField(initializeMineField())
+    setGameOver(false)
+    setGameWon(false)
+    setGameStarted(true)
+    setMinesRemaining(8)
+  }
+
+  const resetMineGame = () => {
+    setMineField([])
+    setGameOver(false)
+    setGameWon(false)
+    setGameStarted(false)
+    setMinesRemaining(8)
+  }
+
+  const revealCell = (row: number, col: number) => {
+    if (gameOver || gameWon || mineField[row][col].revealed) return
+
+    const newField = mineField.map(r => r.map(c => ({ ...c })))
+    
+    if (newField[row][col].hasDynamite) {
+      // Попали на динамит
+      newField[row][col].revealed = true
+      setMineField(newField)
+      setGameOver(true)
+      return
+    }
+
+    // Открываем клетку и получаем награду
+    newField[row][col].revealed = true
+    const reward = newField[row][col].reward
+    setScore(prev => prev + reward)
+    setMineRewards(prev => prev + reward)
+
+    // Проверяем победу
+    const revealedSafeCells = newField.flat().filter(cell => cell.revealed && !cell.hasDynamite).length
+    const totalSafeCells = 64 - 8 // 8x8 - 8 динамитов
+    
+    if (revealedSafeCells === totalSafeCells) {
+      setGameWon(true)
+      setScore(prev => prev + 500) // Бонус за победу
+    }
+
+    setMineField(newField)
   }
 
   const currentLevelData = levels.find(l => l.level === currentLevel)
@@ -179,6 +301,34 @@ const Index = () => {
           </div>
         </div>
 
+        {/* Табы */}
+        <div className="flex justify-center mb-8">
+          <div className="flex bg-white/20 rounded-lg p-1 gap-1">
+            <Button
+              onClick={() => setActiveTab('main')}
+              variant={activeTab === 'main' ? 'default' : 'ghost'}
+              className={activeTab === 'main' ? 'bg-white text-black' : 'text-white hover:bg-white/20'}
+            >
+              🌱 Основное
+            </Button>
+            <Button
+              onClick={() => setActiveTab('mines')}
+              variant={activeTab === 'mines' ? 'default' : 'ghost'}
+              className={activeTab === 'mines' ? 'bg-white text-black' : 'text-white hover:bg-white/20'}
+            >
+              🧨 Мины
+            </Button>
+            <Button
+              onClick={() => setActiveTab('settings')}
+              variant={activeTab === 'settings' ? 'default' : 'ghost'}
+              className={activeTab === 'settings' ? 'bg-white text-black' : 'text-white hover:bg-white/20'}
+            >
+              ⚙️ Настройки
+            </Button>
+          </div>
+        </div>
+
+        {activeTab === 'main' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Основная кнопка */}
@@ -264,6 +414,166 @@ const Index = () => {
             </Card>
           </div>
         </div>
+        )}
+
+        {activeTab === 'mines' && (
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-6">
+            <h2 className="text-4xl font-bold text-white mb-4">🧨 Минное поле</h2>
+            <div className="flex justify-center gap-4 mb-4">
+              <Badge className="text-xl p-2 bg-red-500">
+                🧨 Осталось динамитов: {minesRemaining}
+              </Badge>
+              <Badge className="text-xl p-2 bg-green-500">
+                💰 Наград с мин: {mineRewards.toLocaleString()}
+              </Badge>
+            </div>
+            
+            <div className="flex justify-center gap-4 mb-6">
+              <Button onClick={startMineGame} className="bg-green-600 hover:bg-green-500">
+                🎮 Новая игра
+              </Button>
+              <Button onClick={resetMineGame} variant="outline" className="text-white border-white hover:bg-white/20">
+                🔄 Сброс
+              </Button>
+            </div>
+          </div>
+
+          {gameStarted && (
+            <div className="bg-white/90 rounded-lg p-6 mb-6">
+              {gameOver && (
+                <div className="text-center mb-4">
+                  <div className="text-2xl font-bold text-red-600 mb-2">💥 Взрыв!</div>
+                  <p className="text-gray-600">Вы попали на динамит. Попробуйте ещё раз!</p>
+                </div>
+              )}
+              
+              {gameWon && (
+                <div className="text-center mb-4">
+                  <div className="text-2xl font-bold text-green-600 mb-2">🎉 Победа!</div>
+                  <p className="text-gray-600">Вы открыли все безопасные клетки! Бонус: +500 очков!</p>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-8 gap-1 max-w-md mx-auto">
+                {mineField.map((row, rowIndex) =>
+                  row.map((cell, colIndex) => (
+                    <Button
+                      key={`${rowIndex}-${colIndex}`}
+                      onClick={() => revealCell(rowIndex, colIndex)}
+                      disabled={gameOver || gameWon || cell.revealed}
+                      className={`
+                        w-8 h-8 p-0 text-xs font-bold
+                        ${cell.revealed 
+                          ? cell.hasDynamite 
+                            ? 'bg-red-500 hover:bg-red-500' 
+                            : 'bg-green-500 hover:bg-green-500'
+                          : 'bg-gray-300 hover:bg-gray-200'
+                        }
+                      `}
+                    >
+                      {cell.revealed ? (
+                        cell.hasDynamite ? '🧨' : (
+                          cell.adjacentDynamites > 0 ? cell.adjacentDynamites : '💰'
+                        )
+                      ) : '?'}
+                    </Button>
+                  ))
+                )}
+              </div>
+              
+              <div className="mt-4 text-center text-gray-600">
+                <p>Осторожно: на поле 8 динамитов!</p>
+                <p>Открывайте безопасные клетки для получения очков</p>
+              </div>
+            </div>
+          )}
+        </div>
+        )}
+
+        {activeTab === 'settings' && (
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-6">
+            <h2 className="text-4xl font-bold text-white mb-4">⚙️ Настройки</h2>
+          </div>
+
+          <div className="space-y-4">
+            {/* Смена темы */}
+            <Card className="p-6 bg-white/90">
+              <h3 className="font-bold text-xl mb-4">🎨 Смена темы</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {Object.entries(themes).map(([key, theme]) => (
+                  <Button
+                    key={key}
+                    onClick={() => setCurrentTheme(key)}
+                    variant={currentTheme === key ? "default" : "outline"}
+                    className="h-16 text-lg"
+                  >
+                    {theme.icon} {theme.name}
+                  </Button>
+                ))}
+              </div>
+            </Card>
+
+            {/* Управление сохранениями */}
+            <Card className="p-6 bg-white/90">
+              <h3 className="font-bold text-xl mb-4">💾 Сохранение игры</h3>
+              <div className="space-y-3">
+                <div className="text-gray-600 mb-4">
+                  <p>Игра автоматически сохраняется в вашем браузере.</p>
+                  <p>Вы можете сбросить весь прогресс, если хотите начать заново.</p>
+                </div>
+                
+                <Button 
+                  onClick={resetGame} 
+                  className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3"
+                >
+                  🗑️ Сбросить всё (Необратимо!)
+                </Button>
+              </div>
+            </Card>
+
+            {/* Статистика для настроек */}
+            <Card className="p-6 bg-white/90">
+              <h3 className="font-bold text-xl mb-4">📊 Полная статистика</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-3 bg-gray-100 rounded">
+                  <div className="text-2xl font-bold">{score.toLocaleString()}</div>
+                  <div className="text-sm text-gray-600">Очков</div>
+                </div>
+                <div className="text-center p-3 bg-gray-100 rounded">
+                  <div className="text-2xl font-bold">{totalClicks.toLocaleString()}</div>
+                  <div className="text-sm text-gray-600">Кликов</div>
+                </div>
+                <div className="text-center p-3 bg-gray-100 rounded">
+                  <div className="text-2xl font-bold">{clickPower}</div>
+                  <div className="text-sm text-gray-600">Сила клика</div>
+                </div>
+                <div className="text-center p-3 bg-gray-100 rounded">
+                  <div className="text-2xl font-bold">{currentLevel}</div>
+                  <div className="text-sm text-gray-600">Уровень</div>
+                </div>
+                <div className="text-center p-3 bg-gray-100 rounded">
+                  <div className="text-2xl font-bold">{autoClickers}</div>
+                  <div className="text-sm text-gray-600">Автокликеров</div>
+                </div>
+                <div className="text-center p-3 bg-gray-100 rounded">
+                  <div className="text-2xl font-bold">{factories}</div>
+                  <div className="text-sm text-gray-600">Фабрик</div>
+                </div>
+                <div className="text-center p-3 bg-gray-100 rounded">
+                  <div className="text-2xl font-bold">{mineRewards.toLocaleString()}</div>
+                  <div className="text-sm text-gray-600">Наград с мин</div>
+                </div>
+                <div className="text-center p-3 bg-gray-100 rounded">
+                  <div className="text-2xl font-bold">{(autoClickers + factories * 5).toLocaleString()}</div>
+                  <div className="text-sm text-gray-600">Очков/сек</div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+        )}
 
         {/* Статистика */}
         <div className="mt-8 text-center">
